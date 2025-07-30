@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException
-from typing import List
+from fastapi import FastAPI, HTTPException, Query
+from typing import List, Optional
 from model import Book, BookOut, Genre
 
 app = FastAPI()
@@ -21,8 +21,52 @@ def add_book(book: Book):
     return book_out
 
 @app.get("/books", response_model=List[BookOut], tags=["Books"])
-def get_books():
-    return books_db
+def get_books(
+    search_title: Optional[str] = Query(None, description="Search books by similar title"),
+    sort_by_year: Optional[str] = Query(None, description="Sort by year: 'asc' or 'desc'")
+):
+    filtered_books = books_db.copy()
+    
+    # Search by similar title
+    if search_title:
+        search_title_lower = search_title.lower()
+        filtered_books = [
+            book for book in filtered_books 
+            if search_title_lower in book.title.lower()
+        ]
+    
+    # Sort by year published
+    if sort_by_year:
+        if sort_by_year.lower() == "asc":
+            filtered_books.sort(key=lambda x: x.year_published or 0)
+        elif sort_by_year.lower() == "desc":
+            filtered_books.sort(key=lambda x: x.year_published or 0, reverse=True)
+    
+    return filtered_books
+
+@app.get("/books/search/{title}", response_model=List[BookOut], tags=["Books"])
+def search_books_by_title(title: str):
+    """Search books by similar title using path parameter"""
+    title_lower = title.lower()
+    matching_books = [
+        book for book in books_db 
+        if title_lower in book.title.lower()
+    ]
+    return matching_books
+
+@app.get("/books/sort/year/{order}", response_model=List[BookOut], tags=["Books"])
+def sort_books_by_year(order: str):
+    """Sort books by year published: 'asc' or 'desc'"""
+    if order.lower() not in ["asc", "desc"]:
+        raise HTTPException(status_code=400, detail="Order must be 'asc' or 'desc'")
+    
+    sorted_books = books_db.copy()
+    if order.lower() == "asc":
+        sorted_books.sort(key=lambda x: x.year_published or 0)
+    else:
+        sorted_books.sort(key=lambda x: x.year_published or 0, reverse=True)
+    
+    return sorted_books
 
 @app.get("/books/{book_id}", response_model=BookOut, tags=["Books"])
 def get_book(book_id: int):

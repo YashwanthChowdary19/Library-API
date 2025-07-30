@@ -2,12 +2,12 @@
 import streamlit as st
 import requests
 
-API_URL = "add your api url"
+API_URL = "http://127.0.0.1:8000"
 
 st.title("📚 Library Manager")
 
 # --- Button Selection ---
-action = st.radio("Choose an action:", ["Add Book", "Show All", "Update Book", "Delete Book"], key="action_selector")
+action = st.radio("Choose an action:", ["Add Book", "Show All", "Search Books", "Sort Books", "Update Book", "Delete Book"], key="action_selector", horizontal=True)
 
 
 # -------------------- ADD BOOK --------------------
@@ -53,6 +53,98 @@ elif action == "Show All":
             st.info("No books found.")
     else:
         st.error("❌ Failed to fetch books.")
+
+# -------------------- SEARCH BOOKS --------------------
+elif action == "Search Books":
+    st.subheader("🔍 Search Books")
+    
+    # Search options
+    search_option = st.radio("Search by:", ["Search with Sorting", "Simple Search"], horizontal=True)
+    
+    if search_option == "Search with Sorting":
+        st.write("**Search with additional sorting options:**")
+        search_title = st.text_input("Search by title (optional)")
+        sort_order = st.selectbox("Sort by year:", ["None", "asc", "desc"])
+        
+        if st.button("Search"):
+            params = {}
+            if search_title:
+                params["search_title"] = search_title
+            if sort_order != "None":
+                params["sort_by_year"] = sort_order
+            
+            res = requests.get(f"{API_URL}/books", params=params)
+            if res.status_code == 200:
+                books = res.json()
+                if books:
+                    st.success(f"Found {len(books)} book(s)")
+                    for book in books:
+                        st.markdown(f"""
+                            🔖 **ID**: {book['id']}  
+                            📘 **Title**: {book['title']}  
+                            ✍️ **Author**: {book['author']}  
+                            🗓️ **Year**: {book['year_published']}  
+                            🏷️ **Genre**: `{book['genre']}`  
+                            ---
+                        """)
+                else:
+                    st.info("No books found matching your search criteria.")
+            else:
+                st.error("❌ Failed to search books.")
+    
+    else:  # Simple Search
+        st.write("**Simple search by title:**")
+        search_title = st.text_input("Enter title to search")
+        
+        if st.button("Search"):
+            if search_title:
+                res = requests.get(f"{API_URL}/books/search/{search_title}")
+                if res.status_code == 200:
+                    books = res.json()
+                    if books:
+                        st.success(f"Found {len(books)} book(s) with similar title")
+                        for book in books:
+                            st.markdown(f"""
+                                🔖 **ID**: {book['id']}  
+                                📘 **Title**: {book['title']}  
+                                ✍️ **Author**: {book['author']}  
+                                🗓️ **Year**: {book['year_published']}  
+                                🏷️ **Genre**: `{book['genre']}`  
+                                ---
+                            """)
+                    else:
+                        st.info("No books found with similar title.")
+                else:
+                    st.error("❌ Failed to search books.")
+            else:
+                st.warning("Please enter a title to search.")
+
+# -------------------- SORT BOOKS --------------------
+elif action == "Sort Books":
+    st.subheader("📊 Sort Books by Year")
+    
+    sort_order = st.selectbox("Sort order:", ["asc", "desc"])
+    
+    if st.button("Sort Books"):
+        res = requests.get(f"{API_URL}/books/sort/year/{sort_order}")
+        if res.status_code == 200:
+            books = res.json()
+            if books:
+                order_text = "ascending" if sort_order == "asc" else "descending"
+                st.success(f"Books sorted by year in {order_text} order:")
+                for book in books:
+                    st.markdown(f"""
+                        🔖 **ID**: {book['id']}  
+                        📘 **Title**: {book['title']}  
+                        ✍️ **Author**: {book['author']}  
+                        🗓️ **Year**: {book['year_published']}  
+                        🏷️ **Genre**: `{book['genre']}`  
+                        ---
+                    """)
+            else:
+                st.info("No books found.")
+        else:
+            st.error("❌ Failed to sort books.")
 
 # -------------------- UPDATE BOOK --------------------
 elif action == "Update Book":
